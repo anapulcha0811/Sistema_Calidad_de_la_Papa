@@ -1,0 +1,159 @@
+{% extends "layout.html" %}
+{% block module_title %}CU3: Registro de Atributos de Calidad (Laboratorio){% endblock %}
+{% block main_content %}
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-4xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Ingreso de Resultados de Laboratorio</h2>
+    <p class="text-muted-foreground text-sm mb-6">Seleccione el lote. El sistema cargará automáticamente los parámetros obligatorios que debe medir (configurados por el Administrador). Ingrese los resultados reales obtenidos.</p>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="mb-4 p-3 rounded {% if category == 'success' %}bg-green-100 text-green-700 border border-green-400{% else %}bg-red-100 text-red-700 border border-red-400{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="bg-muted/30 p-5 rounded-lg border border-border mb-6">
+        <label class="block text-sm font-semibold text-foreground mb-2">Seleccionar Lote en Laboratorio</label>
+        <select id="loteSelect" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" onchange="cargarParametros()">
+            <option value="">-- Seleccione un Lote (Solo lotes con inspección visual) --</option>
+            {% for prod in productos %}
+            <option value="{{ prod.padron_id }}" data-inspeccion="{{ prod.cod_inspeccion }}" data-tipo="{{ prod.tipo_producto }}">{{ prod.codigo }} - {{ prod.nombre_lote }} ({{ prod.tipo_producto }})</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <form method="POST" action="{{ url_for('evaluacion') }}" id="formResultados" class="hidden space-y-6">
+        <input type="hidden" name="lote_id" id="lote_id" />
+        <input type="hidden" name="cod_inspeccion" id="cod_inspeccion" />
+        <input type="hidden" name="fecha_control" id="fecha_control" />
+        
+        <div class="border-t border-border pt-4">
+            <h3 class="text-lg font-bold text-foreground mb-4">Parámetros a Evaluar: <span id="lblTipoProducto" class="text-primary"></span></h3>
+            <div id="parametrosContainer" class="space-y-4">
+                <!-- Se inyecta dinámicamente con JS -->
+            </div>
+        </div>
+
+        <button type="button" onclick="enviarResultados()" class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg transition-colors flex items-center justify-center">
+            <i data-lucide="check-circle" class="mr-2 w-5 h-5"></i>
+            Guardar Resultados y Ejecutar Evaluación (CU4)
+        </button>
+    </form>
+    
+    <div id="msgVacio" class="hidden text-center p-8 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200 mt-6">
+        <p class="font-semibold">No hay parámetros globales configurados para este tipo de papa.</p>
+        <p class="text-sm mt-2">Pídale al Administrador que configure los parámetros en el menú de Configuración.</p>
+    </div>
+</div>
+
+<script>
+    async function cargarParametros() {
+        const select = document.getElementById('loteSelect');
+        const option = select.options[select.selectedIndex];
+        const form = document.getElementById('formResultados');
+        const container = document.getElementById('parametrosContainer');
+        const msgVacio = document.getElementById('msgVacio');
+        
+        if (option && option.value !== "") {
+            const loteId = option.value;
+            const tipoProducto = option.getAttribute('data-tipo');
+            
+            document.getElementById('lote_id').value = loteId;
+            document.getElementById('cod_inspeccion').value = option.getAttribute('data-inspeccion');
+            document.getElementById('fecha_control').value = new Date().toISOString().split('T')[0];
+            document.getElementById('lblTipoProducto').innerText = tipoProducto;
+            
+            try {
+                // Consultar parámetros globales para este tipo de producto
+                const response = await fetch(`http://127.0.0.1:8000/api/configuracion/parametros/${encodeURIComponent(tipoProducto)}`);
+                if (response.ok) {
+                    const parametros = await response.json();
+                    container.innerHTML = '';
+                    
+                    if (parametros.length > 0) {
+                        parametros.forEach(p => {
+                            container.innerHTML += `
+                                <div class="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="font-bold text-foreground">${p.descripcion}</div>
+                                        <div class="text-xs text-muted-foreground">Estándar: ${p.estandar} | Rango Oficial: ${p.min} - ${p.max} ${p.unidad_medida}</div>
+                                    </div>
+                                    <div class="w-48">
+                                        <div class="flex items-center space-x-2">
+                                            <input type="number" step="0.01" class="param-input w-full px-3 py-2 border border-border rounded-md focus:ring-primary focus:border-primary" data-evento="${p.id}" placeholder="Valor medido" required />
+                                            <span class="text-sm font-medium">${p.unidad_medida}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        form.classList.remove('hidden');
+                        msgVacio.classList.add('hidden');
+                    } else {
+                        form.classList.add('hidden');
+                        msgVacio.classList.remove('hidden');
+                    }
+                }
+            } catch(e) {
+                console.error("Error al cargar parámetros", e);
+            }
+        } else {
+            form.classList.add('hidden');
+            msgVacio.classList.add('hidden');
+        }
+    }
+    
+    async function enviarResultados() {
+        // Recopilar datos
+        const inputs = document.querySelectorAll('.param-input');
+        let resultados = [];
+        let valid = true;
+        
+        inputs.forEach(input => {
+            if (!input.value) {
+                valid = false;
+                input.classList.add('border-red-500');
+            } else {
+                input.classList.remove('border-red-500');
+                resultados.push({
+                    evento_id: parseInt(input.getAttribute('data-evento')),
+                    valor: parseFloat(input.value)
+                });
+            }
+        });
+        
+        if (!valid) {
+            alert('Por favor ingrese todos los valores medidos.');
+            return;
+        }
+        
+        const payload = {
+            lote_id: parseInt(document.getElementById('lote_id').value),
+            cod_inspeccion: document.getElementById('cod_inspeccion').value,
+            fecha_control: document.getElementById('fecha_control').value,
+            resultados: resultados
+        };
+        
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/evaluacion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                // Si la evaluación fue exitosa, redirigir a CU4 para ver el informe
+                window.location.href = "{{ url_for('cu7') }}"; // CU7 es "Comparar Parámetros" que encaja perfecto
+            } else {
+                alert('Hubo un error al guardar los resultados.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error de conexión.');
+        }
+    }
+</script>
+{% endblock %}

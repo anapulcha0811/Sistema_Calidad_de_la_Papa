@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block module_title %}CU2: Registrar Características Físicas (Inspección Visual){% endblock %}
+{% block main_content %}
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-2xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Inspección Visual del Lote</h2>
+    <p class="text-muted-foreground text-sm mb-6">Registre las características físicas observadas durante la inspección inicial del lote seleccionado.</p>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="mb-4 p-3 rounded {% if category == 'success' %}bg-green-100 text-green-700 border border-green-400{% else %}bg-red-100 text-red-700 border border-red-400{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('atributos') }}" id="caracteristicasForm" class="space-y-5 bg-muted/30 p-5 rounded-lg border border-border">
+        <div>
+            <label class="block text-sm font-semibold text-foreground mb-2">Seleccionar Lote Inspeccionado</label>
+            <select name="lote_id" id="loteSelect" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" onchange="heredarCodigoLote()">
+                <option value="">-- Seleccione un lote --</option>
+                {% for lote in lotes %}
+                <option value="{{ lote.id }}" data-codigo="{{ lote.codigo }}">{{ lote.codigo }} - {{ lote.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="hidden">
+            <input type="text" id="codigo" name="codigo" />
+            <input type="text" id="cod_atributo" name="cod_atributo" value="VISUAL" />
+            <input type="text" name="unidad_medida" value="Visual" />
+            <input type="hidden" id="descripcion" name="descripcion" />
+            <input type="hidden" id="cualitativo" name="cualitativo" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Color Predominante</label>
+                <select id="sel_color" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" required>
+                    <option value="">-- Seleccionar Color --</option>
+                    <option value="Amarillo">Amarillo</option>
+                    <option value="Blanco">Blanco</option>
+                    <option value="Rojo">Rojo</option>
+                    <option value="Morado">Morado</option>
+                    <option value="Marrón">Marrón</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Forma Predominante</label>
+                <select id="sel_forma" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" required>
+                    <option value="">-- Seleccionar Forma --</option>
+                    <option value="Redonda">Redonda</option>
+                    <option value="Ovalada">Ovalada</option>
+                    <option value="Alargada">Alargada</option>
+                    <option value="Irregular">Irregular</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Textura de Piel</label>
+                <select id="sel_textura" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" required>
+                    <option value="">-- Seleccionar Textura --</option>
+                    <option value="Lisa">Lisa</option>
+                    <option value="Rugosa">Rugosa</option>
+                    <option value="Escamosa">Escamosa</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Estado Sanitario Visual</label>
+                <select id="sel_estado" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" required>
+                    <option value="">-- Seleccionar Estado --</option>
+                    <option value="Excelente (Sano)">Excelente (Sano)</option>
+                    <option value="Bueno (Daños Menores)">Bueno (Daños Menores)</option>
+                    <option value="Regular (Daños Moderados)">Regular (Daños Moderados)</option>
+                    <option value="Deficiente (Enfermo/Podrido)">Deficiente (Enfermo/Podrido)</option>
+                </select>
+            </div>
+        </div>
+        
+        <button type="button" onclick="prepararYEnviar()" class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg transition-colors mt-4">
+            Guardar Inspección Visual
+        </button>
+    </form>
+</div>
+
+<script>
+    function heredarCodigoLote() {
+        const select = document.getElementById('loteSelect');
+        const selectedOption = select.options[select.selectedIndex];
+        if (selectedOption && selectedOption.value !== "") {
+            document.getElementById('codigo').value = selectedOption.getAttribute('data-codigo');
+        } else {
+            document.getElementById('codigo').value = "";
+        }
+    }
+
+    function prepararYEnviar() {
+        const form = document.getElementById('caracteristicasForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const color = document.getElementById('sel_color').value;
+        const forma = document.getElementById('sel_forma').value;
+        const textura = document.getElementById('sel_textura').value;
+        const estado = document.getElementById('sel_estado').value;
+
+        // Consolidar características visuales en descripcion
+        document.getElementById('descripcion').value = `Color: ${color}, Forma: ${forma}, Textura: ${textura}`;
+        // Enviar el estado sanitario como el cualitativo
+        document.getElementById('cualitativo').value = estado;
+
+        form.submit();
+    }
+</script>
+{% endblock %}

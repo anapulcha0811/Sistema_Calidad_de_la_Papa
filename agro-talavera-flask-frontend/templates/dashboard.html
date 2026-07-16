@@ -1,0 +1,140 @@
+{% extends "layout.html" %}
+{% block module_title %}Dashboard de Control{% endblock %}
+{% block main_content %}
+<div class="space-y-6">
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-card rounded-lg shadow-sm border border-border p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-sm text-muted-foreground font-medium mb-1">Lotes en Padrón</p>
+                    <p class="text-4xl font-bold text-foreground">{{ data.get('lotes_totales', 0) }}</p>
+                </div>
+                <div class="p-3 bg-primary/10 rounded-lg">
+                    <i data-lucide="leaf" class="w-6 h-6 text-primary"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-card rounded-lg shadow-sm border border-border p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-sm text-muted-foreground font-medium mb-1">Muestras Evaluadas</p>
+                    <p class="text-4xl font-bold text-foreground">{{ data.get('muestras_evaluadas', 0) }}</p>
+                </div>
+                <div class="p-3 bg-accent/10 rounded-lg">
+                    <i data-lucide="scale" class="w-6 h-6 text-accent"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-card rounded-lg shadow-sm border border-border p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-sm text-muted-foreground font-medium mb-1">Porcentaje de Aprobación</p>
+                    {% set pct = data.get('porcentaje_aprobacion', 0) %}
+                    <p class="text-4xl font-bold {% if pct > 80 %}text-green-600{% elif pct > 50 %}text-orange-500{% else %}text-red-500{% endif %}">
+                        {{ pct }}%
+                    </p>
+                </div>
+                <div class="p-3 bg-destructive/10 rounded-lg">
+                    <i data-lucide="trending-up" class="w-6 h-6 text-destructive"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividad Reciente -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+            <h3 class="text-lg font-semibold text-foreground mb-4">Tendencia de Aprobación (7 Días)</h3>
+            <div style="height: 300px;">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+            <h3 class="text-lg font-semibold text-foreground mb-4">Atributos más Evaluados</h3>
+            <div style="height: 300px;">
+                <canvas id="polarChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-8 bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-border">
+            <h3 class="text-lg font-semibold text-foreground">Actividad Reciente (Últimos Lotes)</h3>
+        </div>
+        <div class="divide-y divide-border">
+            {% for act in data.actividad_reciente %}
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-foreground">{{ act.codigo }}</p>
+                    <p class="text-xs text-muted-foreground">Registrado el {{ act.fecha }}</p>
+                </div>
+                <div>
+                    {% if act.aprobado %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Evaluado: Aprobado
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Evaluado: Desaprobado/Pendiente
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="px-6 py-8 text-center text-muted-foreground">
+                <p>No hay actividad reciente registrada en el sistema.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const lineData = {{ data.tendencia | tojson | safe if data.tendencia else 'null' }};
+    const polarData = {{ data.polar | tojson | safe if data.polar else 'null' }};
+
+    if (lineData && lineData.fechas) {
+        new Chart(document.getElementById('lineChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: lineData.fechas,
+                datasets: [{
+                    label: '% de Aprobación',
+                    data: lineData.aprobacion,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    if (polarData && polarData.labels) {
+        new Chart(document.getElementById('polarChart').getContext('2d'), {
+            type: 'polarArea',
+            data: {
+                labels: polarData.labels,
+                datasets: [{
+                    data: polarData.data,
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(139, 92, 246, 0.7)'
+                    ]
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+</script>
+{% endblock %}

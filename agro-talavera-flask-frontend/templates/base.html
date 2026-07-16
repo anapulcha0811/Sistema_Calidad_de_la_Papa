@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroTalavera</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#F9FAFB',
+                        foreground: '#1F2937',
+                        card: '#FFFFFF',
+                        'card-foreground': '#1F2937',
+                        primary: '#005F5F',
+                        'primary-foreground': '#FFFFFF',
+                        secondary: '#C2B280',
+                        'secondary-foreground': '#1F2937',
+                        muted: '#E5E7EB',
+                        'muted-foreground': '#6B7280',
+                        accent: '#008080',
+                        'accent-foreground': '#FFFFFF',
+                        border: '#E5E7EB',
+                        sidebar: '#005F5F',
+                        'sidebar-foreground': '#FFFFFF',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML2PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        body { background-color: theme('colors.background'); color: theme('colors.foreground'); }
+    </style>
+</head>
+<body class="min-h-screen bg-background">
+    {% block content %}{% endblock %}
+    
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

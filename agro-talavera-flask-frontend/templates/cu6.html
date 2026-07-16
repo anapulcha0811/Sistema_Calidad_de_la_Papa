@@ -1,0 +1,218 @@
+{% extends "layout.html" %}
+{% block module_title %}CU6: Informe de Estado de Calidad{% endblock %}
+{% block main_content %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-5xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Generar Informe Final</h2>
+    <p class="text-muted-foreground text-sm mb-6">Consolide los gráficos e historiales para emitir y descargar el informe final en formato PDF.</p>
+
+    <div class="flex items-end space-x-4 mb-8 bg-muted/30 p-4 rounded-lg border border-border">
+        <div class="flex-1">
+            <label class="block text-sm font-semibold text-foreground mb-2">Seleccionar Lote a Reportar</label>
+            <select id="loteSelect" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                <option value="">-- Seleccione un Lote --</option>
+                {% for lote in lotes %}
+                <option value="{{ lote.id }}">{{ lote.codigo }} - {{ lote.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button onclick="prepararInforme()" class="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <i data-lucide="file-text" class="mr-2 w-5 h-5"></i>
+            Preparar Documento
+        </button>
+    </div>
+
+    <!-- Contenedor del PDF (Blanco absoluto para impresión) -->
+    <div id="pdfContainer" style="display: none;" class="bg-white text-black p-8 rounded-lg shadow-inner border border-gray-200">
+        <div class="border-b-2 border-gray-800 pb-4 mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">INFORME DE ESTADO DE CALIDAD</h1>
+                <p class="text-gray-600">AgroTalavera - Sistema de Evaluación (CU6)</p>
+            </div>
+            <div class="text-right text-sm text-gray-800">
+                <p><strong>Cód. Inspección:</strong> <span id="lblCodInspeccion"></span></p>
+                <p><strong>Fecha Control:</strong> <span id="lblFecha"></span></p>
+            </div>
+        </div>
+
+        <div class="mb-6 grid grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                <h3 class="font-bold text-gray-700 mb-2">Datos del Lote</h3>
+                <p><strong>Código:</strong> <span id="lblLoteCod"></span></p>
+                <p><strong>Producto:</strong> <span id="lblLoteNom"></span></p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                <h3 class="font-bold text-gray-700 mb-2">Resumen de Inspección</h3>
+                <p><strong>Total Muestras Analizadas:</strong> <span id="lblTotal"></span></p>
+                <p class="text-green-700"><strong>Óptimos (Aprobados):</strong> <span id="lblAprobados"></span></p>
+                <p class="text-red-700"><strong>Defectos (Desaprobados):</strong> <span id="lblDesaprobados"></span></p>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">Consolidado Gráfico</h3>
+            <div class="w-full max-w-xs mx-auto" style="height: 250px;">
+                <canvas id="pdfChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="mb-8 grid grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                <h3 class="text-md font-bold text-gray-800 mb-2 text-center">Desglose de Atributos</h3>
+                <div class="w-full mx-auto" style="height: 200px;">
+                    <canvas id="pdfBarChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                <h3 class="text-md font-bold text-gray-800 mb-2 text-center">Balance Analítico</h3>
+                <div class="w-full mx-auto" style="height: 200px;">
+                    <canvas id="pdfRadarChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="border-t border-gray-300 pt-4 text-center text-xs text-gray-500 mt-4">
+            Generado automáticamente por el Sistema AgroTalavera. <br/>
+            Este documento representa el informe oficial de calidad para el lote especificado.
+        </div>
+    </div>
+
+    <div id="exportAction" class="mt-8 text-right hidden">
+        <button onclick="descargarPDF()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors inline-flex items-center">
+            <i data-lucide="file-down" class="mr-2 w-5 h-5"></i>
+            Descargar Informe PDF
+        </button>
+    </div>
+</div>
+
+<script>
+    let currentPdfChart = null;
+    let currentPdfBar = null;
+    let currentPdfRadar = null;
+
+    async function prepararInforme() {
+        const loteId = document.getElementById('loteSelect').value;
+        if (!loteId) {
+            Swal.fire('Atención', 'Seleccione un lote.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/reportes/estadisticas/${loteId}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                Swal.fire('Error', 'Debe validar este lote en el CU7 primero. Faltan datos.', 'error');
+                return;
+            }
+
+            document.getElementById('lblCodInspeccion').innerText = data.cod_inspeccion;
+            document.getElementById('lblFecha').innerText = data.fecha_control;
+            document.getElementById('lblLoteCod').innerText = data.lote_codigo;
+            document.getElementById('lblLoteNom').innerText = data.lote_nombre;
+            document.getElementById('lblTotal').innerText = data.total_muestras;
+            document.getElementById('lblAprobados').innerText = data.aprobados;
+            document.getElementById('lblDesaprobados').innerText = data.desaprobados;
+
+            document.getElementById('pdfContainer').style.display = 'block';
+            document.getElementById('exportAction').classList.remove('hidden');
+
+            const ctx = document.getElementById('pdfChart').getContext('2d');
+            if(currentPdfChart) currentPdfChart.destroy();
+            
+            // Gráfico de Barras Principal (Óptimos vs Defectos)
+            currentPdfChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Óptimos', 'Defectos'],
+                    datasets: [{
+                        label: 'Muestras',
+                        data: [data.aprobados, data.desaprobados],
+                        backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)'],
+                        borderColor: ['#16a34a', '#dc2626'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            const labels = [];
+            const resultados = [];
+            if(data.detalle && data.detalle.length > 0){
+                data.detalle.forEach(d => {
+                    labels.push(d.descripcion);
+                    resultados.push(d.resultado);
+                });
+            } else {
+                labels.push("Genérico"); resultados.push(100);
+            }
+
+            if(currentPdfBar) currentPdfBar.destroy();
+            currentPdfBar = new Chart(document.getElementById('pdfBarChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nivel',
+                        data: resultados,
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                        borderColor: '#d97706',
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            if(currentPdfRadar) currentPdfRadar.destroy();
+            currentPdfRadar = new Chart(document.getElementById('pdfRadarChart').getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Balance',
+                        data: resultados,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { beginAtZero: true, pointLabels: { font: { size: 9 } } } } }
+            });
+
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    function descargarPDF() {
+        const element = document.getElementById('pdfContainer');
+        const opt = {
+            margin:       0.5,
+            filename:     'informe_calidad.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            // CU6: Sistema indica si desea culminar sesión
+            Swal.fire({
+                title: 'Informe Descargado',
+                text: "¿Desea culminar su sesión y continuar con un nuevo lote?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, finalizar sesión de lote',
+                cancelButtonText: 'No'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "{{ url_for('padron') }}"; 
+                }
+            });
+        });
+    }
+</script>
+{% endblock %}

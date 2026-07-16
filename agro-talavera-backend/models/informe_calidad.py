@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from config import Base
 
 class InformeCalidad(Base):
@@ -7,7 +6,7 @@ class InformeCalidad(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     lote_id = Column(Integer, ForeignKey("padron_cultivo.id"))
-    fecha_informe = Column(Date)
-    dictamen_final = Column(String)
-    
-    lote = relationship("PadronCultivo")
+    cod_inspeccion = Column(String)
+    aprobado = Column(String)
+    nivel_calidad_m = Column(String)
+    tamano_muestra = Column(Integer)

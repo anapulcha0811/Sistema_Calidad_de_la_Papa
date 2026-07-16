@@ -1,0 +1,146 @@
+{% extends "layout.html" %}
+{% block module_title %}CU0: Configuración Global de Parámetros (Administrador){% endblock %}
+{% block main_content %}
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-4xl mx-auto">
+    <h3 class="text-lg font-semibold mb-4 border-b pb-2">Master Data: Parámetros de Calidad por Cultivo</h3>
+    <p class="text-sm text-muted-foreground mb-6">Como administrador, aquí defines los rangos oficiales (Mínimos y Máximos) para cada tipo de papa. El sistema utilizará estos valores globalmente para dictaminar si un lote Aprueba o Desaprueba en el Laboratorio (CU4).</p>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="mb-4 p-3 rounded {% if category == 'success' %}bg-green-100 text-green-700 border border-green-400{% else %}bg-red-100 text-red-700 border border-red-400{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('settings') }}" id="settingsForm" class="space-y-5 bg-muted/30 p-5 rounded-lg border border-border">
+        <input type="hidden" name="evento_id" id="evento_id" value="">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Variedad (Tipo de Producto)</label>
+                <select name="tipo_producto" id="tipo_producto" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                    <option>Papa Blanca</option>
+                    <option>Papa Amarilla</option>
+                    <option>Papa Canchán</option>
+                    <option>Papa Yungay</option>
+                    <option>Papa Huayro</option>
+                    <option>Papa Perricholi</option>
+                    <option>Papa Tumbay</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Código del Atributo Maestro</label>
+                <input type="text" name="cod_atributo" id="cod_atributo" placeholder="Ej: ATR-HUM-01" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Nombre del Parámetro (Ej. Humedad, Calibre)</label>
+                <input type="text" name="descripcion" id="descripcion" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Unidad de Medida</label>
+                <select name="unidad_medida" id="unidad_medida" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                    <option value="%">% (Porcentaje)</option>
+                    <option value="mm">mm (Milímetros)</option>
+                    <option value="cm">cm (Centímetros)</option>
+                    <option value="g">g (Gramos)</option>
+                    <option value="kg">kg (Kilogramos)</option>
+                    <option value="Unidades">Unidades</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Mínimo Permitido</label>
+                <input type="number" step="0.01" name="min" id="min" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Máximo Permitido</label>
+                <input type="number" step="0.01" name="max" id="max" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Impacto en Calidad</label>
+                <select name="nivel_calidad_p" id="nivel_calidad_p" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                    <option value="Alta">Alta (Crítico)</option>
+                    <option value="Media">Media</option>
+                    <option value="Baja">Baja</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-semibold text-foreground mb-2">Estándar Esperado (Texto Informativo)</label>
+            <input type="text" name="estandar" id="estandar" placeholder="Ej: NTP 011.119 - Papa fresca" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+        </div>
+        
+        <div class="flex gap-4">
+            <button type="submit" id="btnSubmit" class="flex-1 bg-primary text-primary-foreground px-4 py-3 rounded-lg hover:bg-primary/90 font-bold transition-colors">Guardar Parámetro Oficial</button>
+            <button type="button" id="btnCancel" onclick="resetForm()" class="hidden bg-secondary text-secondary-foreground px-4 py-3 rounded-lg hover:bg-secondary/90 font-bold transition-colors">Cancelar</button>
+        </div>
+    </form>
+    
+    <div class="mt-8 border-t pt-6">
+        <h3 class="text-lg font-bold mb-4">Parámetros Globales Configurados</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-muted text-muted-foreground uppercase text-xs">
+                        <th class="p-3 border-b">Variedad</th>
+                        <th class="p-3 border-b">Atributo</th>
+                        <th class="p-3 border-b">Rango (Min - Max)</th>
+                        <th class="p-3 border-b text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in parametros %}
+                    <tr class="border-b hover:bg-muted/50 transition-colors">
+                        <td class="p-3 text-sm font-semibold">{{ p.tipo_producto }}</td>
+                        <td class="p-3 text-sm">{{ p.descripcion }}</td>
+                        <td class="p-3 text-sm font-mono">{{ p.min }} - {{ p.max }} {{ p.unidad_medida }}</td>
+                        <td class="p-3 text-sm text-center">
+                            <button onclick="editarParametro({{ p.id }}, '{{ p.tipo_producto }}', '{{ p.cod_atributo }}', '{{ p.descripcion }}', '{{ p.unidad_medida }}', '{{ p.estandar }}', '{{ p.nivel_calidad_p }}', {{ p.min }}, {{ p.max }})" class="text-blue-500 hover:text-blue-700 font-semibold" title="Editar">
+                                Editar
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="p-4 text-center text-muted-foreground text-sm">No hay parámetros configurados aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function editarParametro(id, tipo, cod, desc, unidad, est, nivel, min, max) {
+    document.getElementById('evento_id').value = id;
+    document.getElementById('tipo_producto').value = tipo;
+    document.getElementById('cod_atributo').value = cod;
+    document.getElementById('descripcion').value = desc;
+    document.getElementById('unidad_medida').value = unidad;
+    document.getElementById('min').value = min;
+    document.getElementById('max').value = max;
+    document.getElementById('nivel_calidad_p').value = nivel;
+    document.getElementById('estandar').value = est;
+    
+    document.getElementById('btnSubmit').innerText = "Actualizar Parámetro Oficial";
+    document.getElementById('btnCancel').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetForm() {
+    document.getElementById('settingsForm').reset();
+    document.getElementById('evento_id').value = "";
+    document.getElementById('btnSubmit').innerText = "Guardar Parámetro Oficial";
+    document.getElementById('btnCancel').classList.add('hidden');
+}
+</script>
+{% endblock %}

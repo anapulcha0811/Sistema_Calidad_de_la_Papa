@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import engine, Base
 from controllers import auth_controller, cultivo_controller, calidad_controller, reporte_controller
+from models import producto_agricola, eventos_calidad, parametros_calidad, informe_calidad, estadisticos_calidad
 
 # Crear las tablas en la base de datos si no existen
 Base.metadata.create_all(bind=engine)
@@ -26,3 +27,7 @@ app.include_router(reporte_controller.router)
 @app.get("/")
 def read_root():
     return {"message": "Bienvenido al Backend de AgroTalavera. Dirígete a /docs para ver los endpoints."}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

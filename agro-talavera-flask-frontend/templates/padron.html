@@ -1,0 +1,151 @@
+{% extends "layout.html" %}
+{% block module_title %}Padrón de Cultivos{% endblock %}
+{% block main_content %}
+<div class="space-y-6">
+    <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+        <h2 class="text-xl font-semibold text-foreground mb-4">Registrar Nuevo Lote</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+            <div class="mb-4 p-3 rounded {% if category == 'success' %}bg-green-100 text-green-700 border border-green-400{% else %}bg-red-100 text-red-700 border border-red-400{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('padron') }}" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">ID Lote (Automático)</label>
+                <div class="flex space-x-2">
+                    <input type="text" id="codigo" name="codigo" required class="flex-1 w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+                    <button type="button" onclick="generarCodigoLote()" class="bg-secondary/20 hover:bg-secondary/40 text-secondary-foreground px-3 py-2 rounded-lg border border-secondary transition-colors" title="Generar Aleatorio">
+                        <i data-lucide="dices" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Nombre de Agricultor / Predio</label>
+                <input type="text" name="nombre" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Cantidad (kg)</label>
+                <input type="number" step="0.01" name="cantidad_lote" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Fecha de Ingreso</label>
+                <input type="date" name="fecha_ingreso" required class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">Tipo de Producto</label>
+                <select name="tipo_producto" id="tipo_producto" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                    <option>Papa Blanca</option>
+                    <option>Papa Amarilla</option>
+                    <option>Papa Canchán</option>
+                    <option>Papa Yungay</option>
+                    <option>Papa Huayro</option>
+                    <option>Papa Perricholi</option>
+                    <option>Papa Tumbay</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-foreground mb-2">ID Inspección (Automático)</label>
+                <div class="flex space-x-2">
+                    <input type="text" id="cod_inspeccion" name="cod_inspeccion" required class="flex-1 w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" />
+                    <button type="button" onclick="generarCodInspeccion()" class="bg-secondary/20 hover:bg-secondary/40 text-secondary-foreground px-3 py-2 rounded-lg border border-secondary transition-colors" title="Generar Aleatorio">
+                        <i data-lucide="dices" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="md:col-span-2">
+                <button type="submit" class="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-lg transition-colors">
+                    Registrar Lote
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function generarCodigoLote() {
+            const tipo = document.getElementById('tipo_producto').value.toUpperCase().substring(0,3);
+            // Genera 4 letras/numeros aleatorios (base 36)
+            const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+            document.getElementById('codigo').value = `LOT-${tipo}-${rnd}`;
+        }
+
+        function generarCodInspeccion() {
+            const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const hoy = new Date();
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            const mes = String(hoy.getMonth()+1).padStart(2, '0');
+            document.getElementById('cod_inspeccion').value = `INS-${dia}${mes}-${rnd}`;
+        }
+    </script>
+
+    <div class="bg-card rounded-lg shadow-sm border border-border p-6 mt-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-3 sm:space-y-0">
+            <h2 class="text-xl font-semibold text-foreground">Lotes Registrados</h2>
+            <div class="relative w-full sm:w-72">
+                <input type="text" id="buscarLote" onkeyup="filtrarTabla()" placeholder="🔍 Buscar por código o nombre..." class="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground text-sm">
+                <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground"></i>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left" id="tablaLotes">
+                <thead class="text-xs uppercase bg-muted text-muted-foreground">
+                    <tr>
+                        <th class="px-4 py-3">Código</th>
+                        <th class="px-4 py-3">Nombre</th>
+                        <th class="px-4 py-3">Cantidad (kg)</th>
+                        <th class="px-4 py-3">Fecha</th>
+                        <th class="px-4 py-3">Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lote in lotes %}
+                    <tr class="border-b border-border">
+                        <td class="px-4 py-3 font-medium">{{ lote.codigo }}</td>
+                        <td class="px-4 py-3">{{ lote.nombre }}</td>
+                        <td class="px-4 py-3">{{ lote.cantidad_lote }}</td>
+                        <td class="px-4 py-3">{{ lote.fecha_ingreso }}</td>
+                        <td class="px-4 py-3">{{ lote.tipo_producto }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-3 text-center text-muted-foreground">No hay lotes registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        function filtrarTabla() {
+            let input = document.getElementById("buscarLote");
+            let filter = input.value.toUpperCase();
+            let table = document.getElementById("tablaLotes");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let showRow = false;
+                let tds = tr[i].getElementsByTagName("td");
+                
+                // Si la fila tiene la clase de 'no hay lotes', ignorarla
+                if (tds.length === 1 && tds[0].colSpan === 5) continue;
+                
+                for (let j = 0; j < tds.length; j++) {
+                    if (tds[j]) {
+                        if (tds[j].innerHTML.toUpperCase().indexOf(filter) > -1) {
+                            showRow = true;
+                            break;
+                        }
+                    }
+                }
+                tr[i].style.display = showRow ? "" : "none";
+            }
+        }
+    </script>
+</div>
+{% endblock %}

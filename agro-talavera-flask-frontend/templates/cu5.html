@@ -1,0 +1,192 @@
+{% extends "layout.html" %}
+{% block module_title %}CU5: Gráficos Estadísticos de Calidad{% endblock %}
+{% block main_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-4xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Reporte de Gráficos Estadísticos</h2>
+    <p class="text-muted-foreground text-sm mb-6">Genera un análisis visual del estado de las muestras evaluadas (defectos vs. óptimos).</p>
+
+    <div class="flex items-end space-x-4 mb-8 bg-muted/30 p-4 rounded-lg border border-border">
+        <div class="flex-1">
+            <label class="block text-sm font-semibold text-foreground mb-2">Seleccionar Lote Validado</label>
+            <select id="loteSelect" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                <option value="">-- Seleccione un Lote --</option>
+                {% for lote in lotes %}
+                <option value="{{ lote.id }}">{{ lote.codigo }} - {{ lote.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button onclick="generarGraficos()" class="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <i data-lucide="pie-chart" class="mr-2 w-5 h-5"></i>
+            Generar Gráficos
+        </button>
+        <button id="btnExportPDF" onclick="exportarPDF()" class="hidden bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <i data-lucide="file-down" class="mr-2 w-5 h-5"></i>
+            Exportar PDF
+        </button>
+    </div>
+
+    <div id="chartContainer" class="hidden mb-8 space-y-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-lg border border-border shadow-sm">
+                <h3 class="text-lg font-bold text-foreground mb-4 text-center">Estado General (Óptimos vs Defectos)</h3>
+                <div class="w-full mx-auto" style="height: 250px;">
+                    <canvas id="qualityChart"></canvas>
+                </div>
+                <div class="mt-6 grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-green-100 p-3 rounded-lg border border-green-200">
+                        <h4 class="font-bold text-green-800 text-sm">Óptimos</h4>
+                        <p class="text-xl text-green-600 font-bold" id="lblOptimos"></p>
+                    </div>
+                    <div class="bg-red-100 p-3 rounded-lg border border-red-200">
+                        <h4 class="font-bold text-red-800 text-sm">Defectos</h4>
+                        <p class="text-xl text-red-600 font-bold" id="lblDefectos"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg border border-border shadow-sm">
+                <h3 class="text-lg font-bold text-foreground mb-4 text-center">Balance de Atributos (Radar)</h3>
+                <div class="w-full mx-auto" style="height: 300px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg border border-border shadow-sm">
+            <h3 class="text-lg font-bold text-foreground mb-4 text-center">Desglose por Atributo Evaluado</h3>
+            <div class="w-full mx-auto" style="height: 300px;">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentChart = null;
+    let currentRadar = null;
+    let currentBar = null;
+
+    async function generarGraficos() {
+        const loteId = document.getElementById('loteSelect').value;
+        if (!loteId) {
+            Swal.fire('Atención', 'Seleccione un lote.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/reportes/estadisticas/${loteId}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                Swal.fire('Error', 'Debe validar este lote en el CU7 primero. Faltan datos.', 'error');
+                document.getElementById('chartContainer').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('chartContainer').classList.remove('hidden');
+            document.getElementById('lblOptimos').innerText = data.aprobados;
+            document.getElementById('lblDefectos').innerText = data.desaprobados;
+
+            // Doughnut Chart
+            if(currentChart) currentChart.destroy();
+            currentChart = new Chart(document.getElementById('qualityChart').getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Óptimos (Aprobados)', 'Defectos (Desaprobados)'],
+                    datasets: [{
+                        data: [data.aprobados, data.desaprobados],
+                        backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)'],
+                        borderColor: ['#16a34a', '#dc2626'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Preparar datos para Radar y Barras (usando data.detalle)
+            const labels = [];
+            const resultados = [];
+            if(data.detalle && data.detalle.length > 0){
+                data.detalle.forEach(d => {
+                    labels.push(d.descripcion);
+                    resultados.push(d.resultado);
+                });
+            } else {
+                labels.push("Genérico"); resultados.push(100); // fallback
+            }
+
+            // Radar Chart
+            if(currentRadar) currentRadar.destroy();
+            currentRadar = new Chart(document.getElementById('radarChart').getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nivel Medido',
+                        data: resultados,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        pointBackgroundColor: '#3b82f6',
+                        pointHoverBorderColor: '#3b82f6',
+                        borderWidth: 2
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true } } }
+            });
+
+            // Bar Chart
+            if(currentBar) currentBar.destroy();
+            currentBar = new Chart(document.getElementById('barChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Resultados Individuales',
+                        data: resultados,
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                        borderColor: '#d97706',
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            document.getElementById('btnExportPDF').classList.remove('hidden');
+
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    function exportarPDF() {
+        const chartContainer = document.getElementById('chartContainer');
+        const opt = {
+            margin:       0.5,
+            filename:     'graficos_calidad.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Create temporary header for PDF
+        const header = document.createElement('div');
+        header.innerHTML = `
+            <div style="text-align: center; margin-bottom: 20px; font-family: sans-serif;">
+                <h1 style="color: #005F5F; margin-bottom: 5px;">AgroTalavera</h1>
+                <h2 style="color: #333; margin-top: 0;">Reporte de Gráficos de Calidad</h2>
+                <p style="color: #666;">Generado el: ${new Date().toLocaleDateString()}</p>
+                <hr style="border: 1px solid #ccc; margin-top: 15px;"/>
+            </div>
+        `;
+        chartContainer.insertBefore(header, chartContainer.firstChild);
+
+        html2pdf().set(opt).from(chartContainer).save().then(() => {
+            // Remove header after PDF generation
+            chartContainer.removeChild(header);
+        });
+    }
+</script>
+{% endblock %}

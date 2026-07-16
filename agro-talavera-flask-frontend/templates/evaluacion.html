@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+{% block module_title %}CU4: Consolidar y Evaluar Muestras{% endblock %}
+{% block main_content %}
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-5xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Registro de Evaluación de Muestras</h2>
+    <p class="text-muted-foreground text-sm mb-6">Seleccione un lote previamente evaluado en laboratorio (CU3) para revisar su dictamen final (Aprobado / Desaprobado).</p>
+    
+    <div class="bg-muted/30 p-5 rounded-lg border border-border mb-8">
+        <label class="block text-sm font-semibold text-foreground mb-2">Seleccionar Lote Evaluado</label>
+        <select id="loteSelect" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" onchange="cargarEvaluacion()">
+            <option value="">-- Seleccione un Lote --</option>
+            {% for lote in lotes %}
+            <option value="{{ lote.id }}">{{ lote.codigo }} - {{ lote.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Dictamen Final -->
+    <div id="dictamenContainer" class="hidden mb-8 p-6 rounded-lg border flex items-center justify-between">
+        <div>
+            <h3 class="text-2xl font-bold mb-1" id="dictamenTitulo">Dictamen General: </h3>
+            <p class="text-muted-foreground text-sm">Inspección: <span id="dictamenInspeccion" class="font-mono"></span> | Muestras procesadas: <span id="dictamenMuestras"></span></p>
+        </div>
+        <div>
+            <span id="badgeEstado" class="px-6 py-2 rounded-full text-lg font-bold"></span>
+        </div>
+    </div>
+    
+    <!-- Action buttons -->
+    <div id="actionContainer" class="hidden border-t border-border pt-6 flex justify-end">
+        <a href="{{ url_for('cu7') }}" class="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <i data-lucide="arrow-right" class="mr-2 w-5 h-5"></i>
+            Ir a Comparar Parámetros (CU7)
+        </a>
+    </div>
+    
+    <div id="msgVacio" class="hidden text-center p-8 text-muted-foreground border border-dashed rounded-lg mt-6">
+        Este lote aún no ha sido evaluado en laboratorio. Vaya al CU3 para ingresar sus resultados.
+    </div>
+</div>
+
+<script>
+    async function cargarEvaluacion() {
+        const select = document.getElementById('loteSelect');
+        const loteId = select.value;
+        
+        const dictamenContainer = document.getElementById('dictamenContainer');
+        const actionContainer = document.getElementById('actionContainer');
+        const msgVacio = document.getElementById('msgVacio');
+        
+        if (!loteId) {
+            dictamenContainer.classList.add('hidden');
+            actionContainer.classList.add('hidden');
+            msgVacio.classList.add('hidden');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/evaluacion/lote/${loteId}`);
+            if (response.ok) {
+                const evalLote = await response.json();
+                
+                // Cargar dictamen
+                document.getElementById('dictamenInspeccion').innerText = evalLote.cod_inspeccion;
+                document.getElementById('dictamenMuestras').innerText = evalLote.tamano_muestra;
+                
+                const badge = document.getElementById('badgeEstado');
+                if (evalLote.estado_general === 'APROBADO') {
+                    dictamenContainer.className = 'mb-8 p-6 rounded-lg border flex items-center justify-between bg-green-50 border-green-200';
+                    badge.className = 'px-6 py-2 rounded-full text-lg font-bold bg-green-500 text-white';
+                    badge.innerText = '✔ CUMPLE';
+                } else {
+                    dictamenContainer.className = 'mb-8 p-6 rounded-lg border flex items-center justify-between bg-red-50 border-red-200';
+                    badge.className = 'px-6 py-2 rounded-full text-lg font-bold bg-red-500 text-white';
+                    badge.innerText = '✖ NO CUMPLE';
+                }
+                
+                dictamenContainer.classList.remove('hidden');
+                actionContainer.classList.remove('hidden');
+                msgVacio.classList.add('hidden');
+            } else {
+                dictamenContainer.classList.add('hidden');
+                actionContainer.classList.add('hidden');
+                msgVacio.classList.remove('hidden');
+            }
+        } catch(e) {
+            console.error("Error cargando evaluación", e);
+        }
+    }
+</script>
+{% endblock %}

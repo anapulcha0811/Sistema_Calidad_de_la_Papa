@@ -1,0 +1,236 @@
+{% extends "layout.html" %}
+{% block module_title %}CU7: Comparar Parámetros de Calidad{% endblock %}
+{% block main_content %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<div class="bg-card rounded-lg shadow-sm border border-border p-6 max-w-4xl mx-auto">
+    <h2 class="text-xl font-semibold text-foreground mb-4">Validación de Parámetros</h2>
+    <p class="text-muted-foreground text-sm mb-6">Valide si el lote cuenta con los datos de evaluación completos antes de emitir reportes.</p>
+
+    <div class="flex items-end space-x-4 bg-muted/30 p-4 rounded-lg border border-border">
+        <div class="flex-1">
+            <label class="block text-sm font-semibold text-foreground mb-2">Lote a Validar</label>
+            <select id="loteSelect" class="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground">
+                <option value="">-- Seleccione un Lote --</option>
+                {% for lote in lotes %}
+                <option value="{{ lote.id }}">{{ lote.codigo }} - {{ lote.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button onclick="validarParametros()" class="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <i data-lucide="check-square" class="mr-2 w-5 h-5"></i>
+            Comparar y Validar
+        </button>
+    </div>
+
+    <div id="resultadoValidacion" class="mt-6 hidden">
+        <!-- El resultado se mostrará aquí -->
+    </div>
+</div>
+
+<!-- Plantilla Oculta para el Certificado (Off-screen) -->
+<div style="position: absolute; left: -9999px; top: 0;">
+    <div id="certificadoTemplate" style="width: 800px; padding: 40px; background-color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333;">
+        <div style="border: 2px solid #2f855a; padding: 30px; border-radius: 10px; position: relative; overflow: hidden;">
+            <!-- Decoración -->
+            <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background-color: #f0fff4; border-radius: 50%; z-index: 0;"></div>
+            <div style="position: absolute; bottom: -50px; left: -50px; width: 150px; height: 150px; background-color: #f0fff4; border-radius: 50%; z-index: 0;"></div>
+            
+            <div style="position: relative; z-index: 1; text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2f855a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+                        <path d="M12 16V12"></path>
+                        <path d="M12 8H12.01"></path>
+                    </svg>
+                    <h1 style="color: #2f855a; margin: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px;">AgroTalavera</h1>
+                </div>
+                
+                <h2 style="font-size: 32px; color: #1a202c; margin-bottom: 5px; text-transform: uppercase;">Certificado de Calidad</h2>
+                <p style="color: #718096; font-size: 14px; margin-bottom: 40px;" id="certFecha">Emitido el: </p>
+                
+                <div style="text-align: left; background-color: #f7fafc; padding: 25px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #2f855a;">
+                    <h3 style="margin-top: 0; color: #2d3748; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">Información del Lote Aprobado</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #4a5568; width: 40%;"><strong>Lote Comercial:</strong></td>
+                            <td style="padding: 8px 0; color: #2d3748; font-weight: bold;" id="certLoteNombre"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #4a5568;"><strong>Código de Certificado:</strong></td>
+                            <td style="padding: 8px 0; color: #2d3748; font-family: monospace;" id="certCodigo"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #4a5568;"><strong>Estado de Evaluación:</strong></td>
+                            <td style="padding: 8px 0; color: #2f855a; font-weight: bold;">CUMPLE TODOS LOS ESTÁNDARES (100%)</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p style="text-align: justify; color: #4a5568; line-height: 1.6; margin-bottom: 40px; font-size: 15px;">
+                    El presente documento certifica que el lote mencionado ha sido sometido a rigurosas evaluaciones de laboratorio para validar sus atributos físicos y cualitativos. Todos los parámetros analizados cumplen satisfactoriamente con la Norma Técnica y los umbrales de calidad establecidos por AgroTalavera. Por consiguiente, se <strong>AUTORIZA</strong> su distribución y comercialización.
+                </p>
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px;">
+                    <div style="text-align: center; width: 250px;">
+                        <div style="border-bottom: 1px solid #cbd5e0; margin-bottom: 10px; height: 40px;"></div>
+                        <p style="margin: 0; color: #4a5568; font-weight: bold; font-size: 14px;">Ing. Control de Calidad</p>
+                        <p style="margin: 0; color: #718096; font-size: 12px;">AgroTalavera S.A.C</p>
+                    </div>
+                    
+                    <div style="border: 3px solid #2f855a; color: #2f855a; font-weight: bold; padding: 10px 20px; font-size: 24px; text-transform: uppercase; letter-spacing: 4px; transform: rotate(-5deg); border-radius: 8px;">
+                        APROBADO
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function playErrorSound() {
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(300, context.currentTime);
+        gainNode.gain.setValueAtTime(0.1, context.currentTime);
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.6);
+    }
+
+    async function validarParametros() {
+        const loteId = document.getElementById('loteSelect').value;
+        const loteSelect = document.getElementById('loteSelect');
+        const loteNombre = loteSelect.options[loteSelect.selectedIndex]?.text;
+        
+        if (!loteId) {
+            Swal.fire('Atención', 'Seleccione un lote.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/reportes/estadisticas/${loteId}`);
+            const data = await response.json();
+            const resultDiv = document.getElementById('resultadoValidacion');
+            resultDiv.classList.remove('hidden');
+
+            if (!response.ok) {
+                playErrorSound();
+                resultDiv.innerHTML = `
+                    <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center shadow-sm">
+                        <i data-lucide="alert-triangle" class="w-8 h-8 mr-4 text-red-600"></i>
+                        <div>
+                            <strong class="text-lg">Evaluación Desaprobada o Incompleta</strong>
+                            <p class="text-sm mt-1">${data.detail || 'Faltan datos de evaluación o el lote ha sido rechazado.'}</p>
+                        </div>
+                    </div>`;
+                lucide.createIcons();
+                Swal.fire('Atención', 'Este lote NO cumple con los estándares o faltan datos.', 'error');
+            } else {
+                // Verificar si todos cumplen
+                let todosCumplen = true;
+                if(data.detalle && data.detalle.length > 0){
+                    data.detalle.forEach(d => {
+                        if(d.estado !== 'APROBADO') todosCumplen = false;
+                    });
+                } else {
+                    todosCumplen = false;
+                }
+
+                if (!todosCumplen) {
+                    playErrorSound();
+                    resultDiv.innerHTML = `
+                        <div class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <i data-lucide="x-circle" class="w-8 h-8 mr-3 text-red-600"></i>
+                                <h3 class="text-lg font-bold">Lote Rechazado</h3>
+                            </div>
+                            <p>Uno o más parámetros no cumplen con el estándar. Por política de calidad, el lote entero es rechazado y no se puede emitir certificado.</p>
+                        </div>`;
+                    lucide.createIcons();
+                    Swal.fire('Lote Rechazado', 'Uno o más parámetros fallaron.', 'error');
+                    return;
+                }
+
+                let tableHtml = `
+                    <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden bg-white mb-4">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700 uppercase">
+                                    <th class="p-3 border-b border-gray-200">Atributo Evaluado</th>
+                                    <th class="p-3 border-b border-gray-200">Valor Obtenido</th>
+                                    <th class="p-3 border-b border-gray-200 text-center">Contraste (Estado)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.detalle.forEach(d => {
+                    let badge = '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">Cumple Estándar</span>';
+                    tableHtml += `
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="p-3 font-semibold">${d.descripcion} <span class="text-xs text-gray-400 font-mono">(${d.cod_atributo})</span></td>
+                            <td class="p-3 font-mono font-bold">${d.resultado}</td>
+                            <td class="p-3 text-center">${badge}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += `</tbody></table></div>`;
+
+                resultDiv.innerHTML = `
+                    <div class="p-5 bg-green-50 border border-green-400 text-green-800 rounded-lg shadow-sm">
+                        <div class="flex items-center mb-4">
+                            <i data-lucide="check-circle" class="w-8 h-8 mr-3 text-green-600"></i>
+                            <h3 class="text-lg font-bold">¡Lote 100% Aprobado!</h3>
+                        </div>
+                        <p class="mb-4">El lote <strong>${loteNombre}</strong> ha superado la evaluación completa. Todos los parámetros están dentro de la norma.</p>
+                        
+                        ${tableHtml}
+
+                        <button onclick="descargarCertificado('${loteNombre}')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center w-full shadow-md">
+                            <i data-lucide="download" class="mr-2 w-5 h-5"></i>
+                            Descargar Certificado en PDF
+                        </button>
+                    </div>`;
+                lucide.createIcons();
+            }
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    function descargarCertificado(loteNombre) {
+        Swal.fire({
+            title: 'Generando PDF...',
+            text: 'Por favor espere un momento.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const rnd = Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById('certFecha').innerText = 'Emitido el: ' + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+        document.getElementById('certLoteNombre').innerText = loteNombre;
+        document.getElementById('certCodigo').innerText = 'CERT-AGRO-' + rnd;
+
+        const element = document.getElementById('certificadoTemplate');
+        
+        const opt = {
+            margin:       0,
+            filename:     'Certificado_' + loteNombre.replace(/[^a-z0-9]/gi, '_') + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            Swal.fire('¡Éxito!', 'El certificado se ha descargado a tu computadora.', 'success');
+        });
+    }
+</script>
+{% endblock %}

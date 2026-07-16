@@ -22,18 +22,51 @@ class CultivoResponse(CultivoCreate):
 
 class CaracteristicaCreate(BaseModel):
     lote_id: int
-    descripcion_muestra: str
+    codigo: str
+    cod_atributo: str
+    descripcion: str
+    cualitativo: str
+    unidad_medida: str
 
-class EvaluacionCreate(BaseModel):
+class EventoCalidadCreate(BaseModel):
+    producto_id: int
+    cod_atributo: str
+    descripcion: str
+    unidad_medida: str
+    estandar: str
+    nivel_calidad_p: str
+    min: float
+    max: float
+    tipo_producto: str
+
+class EvaluacionGenerarRequest(BaseModel):
     lote_id: int
-    peso_muestra: float = Field(..., gt=0)
-    porcentaje_almidon: float = Field(..., ge=0, le=100)
+    cod_inspeccion: str
+    fecha_control: str
+
+class EvaluacionManualRequest(BaseModel):
+    lote_id: int
+    cod_inspeccion: str
+    fecha_control: str
+    resultados: list = [] # list of {"evento_id": int, "valor": float}
+
+class ParametroGlobalCreate(BaseModel):
+    tipo_producto: str
+    cod_atributo: str
+    descripcion: str
+    unidad_medida: str
+    estandar: str
+    nivel_calidad_p: str
+    min: float
+    max: float
 
 class EvaluacionResponse(BaseModel):
     id: int
+    cod_muestra: str
+    cod_atributo: str
+    descripcion: str
+    resultado: float
     estado: str
-    lote_id: int
-    porcentaje_almidon: float
 
     class Config:
         from_attributes = True
