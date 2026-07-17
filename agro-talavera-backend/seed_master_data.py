@@ -1,7 +1,12 @@
-import sqlite3
 import os
+import sys
 
-db_path = "database.db"
+# Add backend dir to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from config import SessionLocal
+from models.eventos_calidad import EventosCalidad
+from models.parametros_calidad import ParametrosCalidad
 
 # Parameters
 parametros_base = [
@@ -37,43 +42,46 @@ parametros_base = [
 tipos_papa = ["Papa Blanca", "Papa Amarilla", "Papa Canchán", "Papa Yungay", "Papa Huayro", "Papa Perricholi", "Papa Tumbay"]
 
 def seed_db():
-    if not os.path.exists(db_path):
-        print(f"Database {db_path} not found.")
-        return
+    db = SessionLocal()
+    try:
+        for tipo in tipos_papa:
+            # Check if already exists for this tipo
+            count = db.query(EventosCalidad).filter(EventosCalidad.tipo_producto == tipo, EventosCalidad.producto_id == None).count()
 
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    for tipo in tipos_papa:
-        # Check if already exists for this tipo
-        cursor.execute("SELECT COUNT(*) FROM eventos_calidad WHERE tipo_producto = ? AND producto_id IS NULL", (tipo,))
-        count = cursor.fetchone()[0]
-
-        if count == 0:
-            for p in parametros_base:
-                # Insert into eventos_calidad (Master Data row)
-                cursor.execute("""
-                    INSERT INTO eventos_calidad 
-                    (producto_id, cod_atributo, descripcion, unidad_medida, estandar, nivel_calidad_p, min, max, tipo_producto)
-                    VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (p["cod_atributo"], p["descripcion"], p["unidad_medida"], p["estandar"], p["nivel_calidad_p"], p["min"], p["max"], tipo))
+            if count == 0:
+                for p in parametros_base:
+                    evento = EventosCalidad(
+                        producto_id=None,
+                        cod_atributo=p["cod_atributo"],
+                        descripcion=p["descripcion"],
+                        unidad_medida=p["unidad_medida"],
+                        estandar=p["estandar"],
+                        nivel_calidad_p=p["nivel_calidad_p"],
+                        min=p["min"],
+                        max=p["max"],
+                        tipo_producto=tipo
+                    )
+                    db.add(evento)
+                    db.flush() # To get the id
+                    
+                    param = ParametrosCalidad(
+                        evento_id=evento.id,
+                        cod_atributo=p["cod_atributo"],
+                        descripcion=p["descripcion"],
+                        nivel_calidad_p=p["nivel_calidad_p"],
+                        min=p["min"],
+                        max=p["max"]
+                    )
+                    db.add(param)
                 
-                evento_id = cursor.lastrowid
-                
-                # Insert into parametros_calidad
-                cursor.execute("""
-                    INSERT INTO parametros_calidad
-                    (evento_id, cod_atributo, descripcion, nivel_calidad_p, min, max)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (evento_id, p["cod_atributo"], p["descripcion"], p["nivel_calidad_p"], p["min"], p["max"]))
-            
-            print(f"Master Data seeded for {tipo}.")
-        else:
-            print(f"Master Data already exists for {tipo}.")
+                db.commit()
+                print(f"Master Data seeded for {tipo}.")
+            else:
+                print(f"Master Data already exists for {tipo}.")
 
-    conn.commit()
-    conn.close()
-    print("Master Data seeding process completed!")
+        print("Master Data seeding process completed!")
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     seed_db()

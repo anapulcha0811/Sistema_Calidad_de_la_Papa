@@ -68,7 +68,7 @@
             
             try {
                 // Consultar parámetros globales para este tipo de producto
-                const response = await fetch(`http://127.0.0.1:8000/api/configuracion/parametros/${encodeURIComponent(tipoProducto)}`);
+                const response = await fetch(`http://${window.location.hostname}:8000/api/configuracion/parametros/${encodeURIComponent(tipoProducto)}`);
                 if (response.ok) {
                     const parametros = await response.json();
                     container.innerHTML = '';
@@ -138,7 +138,7 @@
         };
         
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/evaluacion', {
+            const response = await fetch(`http://${window.location.hostname}:8000/api/evaluacion`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
